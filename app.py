@@ -497,7 +497,7 @@ def generate_accounts():
 
     results = []
     rare_accounts = []
-    max_workers = min(count, 20)
+    max_workers = min(count, 100)
     max_attempts = count * 5
     attempts = 0
 
