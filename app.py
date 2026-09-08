@@ -10,6 +10,7 @@ import codecs
 import base64
 import hmac
 import hashlib
+import socket
 from datetime import datetime
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -46,7 +47,9 @@ def after_request(response):
     return response
 
 # ---------------- CONFIG & GLOBALS ---------------- #
+VERSION = "3.2"
 REGION_LANG = {"ME":"ar","IND":"hi","ID":"id","VN":"vi","TH":"th","BD":"bn","PK":"ur","TW":"zh","CIS":"ru","SAC":"es","BR":"pt"}
+REGION_NAMES = {"ME":"Middle East","IND":"India","ID":"Indonesia","VN":"Vietnam","TH":"Thailand","BD":"Bangladesh","PK":"Pakistan","TW":"Taiwan","CIS":"CIS","SAC":"South America","BR":"Brazil"}
 HEX_KEY = bytes.fromhex("32656534343831396539623435393838343531343130363762323831363231383734643064356437616639643866376530306331653534373135623764316533")
 
 OPT = {'timeout': 10, 'retries': 2, 'backoff': 0.5}
@@ -86,9 +89,160 @@ class WAFBypass:
         "GarenaMSDK/4.0.41(SM-S918B;Android 14;en;IN;)",
         "GarenaMSDK/4.0.42(OnePlus 11;Android 13;en;US;)",
         "GarenaMSDK/4.0.39(Xiaomi 13 Pro;Android 13;pt;BR;)",
-        "GarenaMSDK/4.0.40(Pixel 7 Pro;Android 14;en;US;)"
+        "GarenaMSDK/4.0.40(Pixel 7 Pro;Android 14;en;US;)",
+        "GarenaMSDK/4.0.38(ASUS ROG Phone 7;Android 13;id;ID;)",
+        "GarenaMSDK/4.0.41(Infinix Note 12;Android 12;th;TH;)",
+        "GarenaMSDK/4.0.43(SM-G998B;Android 13;ar;EG;)",
+        "GarenaMSDK/4.0.37(Redmi Note 11;Android 11;es;MX;)",
+        "GarenaMSDK/4.0.40(Poco F5;Android 13;en;VN;)",
+        "GarenaMSDK/4.0.42(Realme GT 3;Android 13;hi;IN;)",
+        "GarenaMSDK/4.0.39(Vivo V27;Android 13;en;PH;)",
+        "GarenaMSDK/4.0.41(OPPO Reno 10;Android 13;id;ID;)",
+        "GarenaMSDK/4.0.38(Tecno Camon 20;Android 13;fr;FR;)",
+        "GarenaMSDK/4.0.40(Huawei P50;Android 11;ar;SA;)",
+        "GarenaMSDK/4.0.42(Lenovo Legion Y70;Android 12;zh;TW;)",
+        "GarenaMSDK/4.0.39(Zuck Z5 Pro;Android 11;en;US;)",
+        "GarenaMSDK/4.0.44(SM-S928B;Android 14;en;SG;)",
+        "GarenaMSDK/4.0.42(Xiaomi 14;Android 14;id;ID;)",
+        "GarenaMSDK/4.0.40(Poco X5 Pro;Android 12;en;MY;)",
+        "GarenaMSDK/4.0.41(Oppo Find X5;Android 13;th;TH;)",
+        "GarenaMSDK/4.0.39(Vivo X80;Android 12;vi;VN;)",
+        "GarenaMSDK/4.0.43(Realme 11 Pro;Android 13;hi;IN;)",
+        "GarenaMSDK/4.0.38(Infinix Zero 30;Android 13;ar;SA;)",
+        "GarenaMSDK/4.0.40(Tecno Phantom V;Android 13;pt;BR;)",
+        "GarenaMSDK/4.0.42(Samsung A54;Android 13;es;MX;)",
+        "GarenaMSDK/4.0.39(Samsung A34;Android 13;en;PH;)",
+        "GarenaMSDK/4.0.35(SM-N975F;Android 10;en;GB;)",
+        "GarenaMSDK/4.0.36(SM-G973F;Android 10;de;DE;)",
+        "GarenaMSDK/4.0.37(SM-A715F;Android 11;es;ES;)",
+        "GarenaMSDK/4.0.38(SM-A515F;Android 11;fr;FR;)",
+        "GarenaMSDK/4.0.39(SM-A217F;Android 10;pt;BR;)",
+        "GarenaMSDK/4.0.40(Redmi Note 9;Android 10;ru;RU;)",
+        "GarenaMSDK/4.0.41(Redmi 9;Android 10;id;ID;)",
+        "GarenaMSDK/4.0.42(Poco X2;Android 10;en;IN;)",
+        "GarenaMSDK/4.0.43(Mi 10;Android 11;zh;CN;)",
+        "GarenaMSDK/4.0.44(Mi 11;Android 12;en;US;)",
+        "GarenaMSDK/4.0.35(OnePlus 8;Android 10;en;GB;)",
+        "GarenaMSDK/4.0.36(OnePlus 8T;Android 11;en;IN;)",
+        "GarenaMSDK/4.0.37(OnePlus Nord;Android 10;en;EU;)",
+        "GarenaMSDK/4.0.38(Realme 6;Android 10;hi;IN;)",
+        "GarenaMSDK/4.0.39(Realme 7 Pro;Android 10;en;BD;)",
+        "GarenaMSDK/4.0.40(Realme 8;Android 11;th;TH;)",
+        "GarenaMSDK/4.0.41(Vivo Y20;Android 10;id;ID;)",
+        "GarenaMSDK/4.0.42(Vivo V20;Android 11;en;PH;)",
+        "GarenaMSDK/4.0.43(Oppo A53;Android 10;en;MY;)",
+        "GarenaMSDK/4.0.44(Oppo Reno 4;Android 10;vi;VN;)",
+        "GarenaMSDK/4.0.35(SM-G980F;Android 10;en;US;)",
+        "GarenaMSDK/4.0.36(SM-G985F;Android 11;en;CA;)",
+        "GarenaMSDK/4.0.37(SM-A705FN;Android 9;es;ES;)",
+        "GarenaMSDK/4.0.38(SM-A505FN;Android 10;pl;PL;)",
+        "GarenaMSDK/4.0.39(SM-A305F;Android 9;ar;SA;)",
+        "GarenaMSDK/4.0.40(Redmi Note 8;Android 9;ru;RU;)",
+        "GarenaMSDK/4.0.41(Redmi 8;Android 9;es;MX;)",
+        "GarenaMSDK/4.0.42(Poco F1;Android 10;en;IN;)",
+        "GarenaMSDK/4.0.43(Mi 9T;Android 10;tr;TR;)",
+        "GarenaMSDK/4.0.44(Mi Note 10;Android 10;it;IT;)",
+        "GarenaMSDK/4.0.35(OnePlus 7T;Android 10;en;US;)",
+        "GarenaMSDK/4.0.36(OnePlus 7;Android 9;en;GB;)",
+        "GarenaMSDK/4.0.37(Realme 5 Pro;Android 9;hi;IN;)",
+        "GarenaMSDK/4.0.38(Realme XT;Android 10;en;PH;)",
+        "GarenaMSDK/4.0.39(Vivo S1;Android 9;id;ID;)",
+        "GarenaMSDK/4.0.40(Vivo Z1Pro;Android 10;en;IN;)",
+        "GarenaMSDK/4.0.41(Oppo F11;Android 9;th;TH;)",
+        "GarenaMSDK/4.0.42(Oppo A9;Android 9;vi;VN;)",
+        "GarenaMSDK/4.0.43(Huawei P30;Android 10;ar;AE;)",
+        "GarenaMSDK/4.0.44(Huawei Mate 30;Android 10;zh;CN;)",
+        "GarenaMSDK/4.0.35(SM-S901E;Android 12;en;SG;)",
+        "GarenaMSDK/4.0.36(SM-S906E;Android 12;en;AU;)",
+        "GarenaMSDK/4.0.37(SM-S908E;Android 13;en;PH;)",
+        "GarenaMSDK/4.0.38(SM-A736B;Android 12;en;IN;)",
+        "GarenaMSDK/4.0.39(SM-A536E;Android 13;id;ID;)",
+        "GarenaMSDK/4.0.40(SM-A336E;Android 12;th;TH;)",
+        "GarenaMSDK/4.0.41(SM-A135F;Android 12;pt;BR;)",
+        "GarenaMSDK/4.0.42(SM-M336B;Android 12;hi;IN;)",
+        "GarenaMSDK/4.0.43(SM-M536B;Android 12;en;VN;)",
+        "GarenaMSDK/4.0.44(SM-F711B;Android 12;en;GB;)",
+        "GarenaMSDK/4.0.35(SM-F916B;Android 11;de;DE;)",
+        "GarenaMSDK/4.0.36(Xiaomi 12T;Android 12;es;ES;)",
+        "GarenaMSDK/4.0.37(Xiaomi 12T Pro;Android 13;fr;FR;)",
+        "GarenaMSDK/4.0.38(Xiaomi 11T;Android 11;it;IT;)",
+        "GarenaMSDK/4.0.39(Xiaomi 11T Pro;Android 12;pl;PL;)",
+        "GarenaMSDK/4.0.40(Redmi Note 11 Pro;Android 11;tr;TR;)",
+        "GarenaMSDK/4.0.41(Redmi Note 12;Android 13;id;ID;)",
+        "GarenaMSDK/4.0.42(Redmi Note 12 Pro;Android 12;hi;IN;)",
+        "GarenaMSDK/4.0.43(Poco F4;Android 12;en;US;)",
+        "GarenaMSDK/4.0.44(Poco X4 Pro;Android 11;ru;RU;)",
+        "GarenaMSDK/4.0.35(OnePlus 10T;Android 12;en;GB;)",
+        "GarenaMSDK/4.0.36(OnePlus 9RT;Android 11;en;IN;)",
+        "GarenaMSDK/4.0.37(Realme GT Neo 2;Android 11;zh;CN;)",
+        "GarenaMSDK/4.0.38(Realme 9 Pro;Android 12;en;TH;)",
+        "GarenaMSDK/4.0.39(Vivo V25;Android 12;vi;VN;)",
+        "GarenaMSDK/4.0.40(Vivo X70 Pro;Android 11;hi;IN;)",
+        "GarenaMSDK/4.0.41(Oppo Reno 8;Android 12;id;ID;)",
+        "GarenaMSDK/4.0.42(Oppo A78;Android 13;en;PH;)",
+        "GarenaMSDK/4.0.43(Infinix Note 11;Android 11;ar;EG;)",
+        "GarenaMSDK/4.0.44(Tecno Spark 9;Android 12;fr;FR;)",
+        "GarenaMSDK/4.0.35(SM-A546B;Android 13;en;GB;)",
+        "GarenaMSDK/4.0.36(SM-A346B;Android 13;es;ES;)",
+        "GarenaMSDK/4.0.37(SM-A145P;Android 13;pt;BR;)",
+        "GarenaMSDK/4.0.38(SM-M146B;Android 13;hi;IN;)",
+        "GarenaMSDK/4.0.39(SM-A245F;Android 13;ar;SA;)",
+        "GarenaMSDK/4.0.40(Redmi 12;Android 13;id;ID;)",
+        "GarenaMSDK/4.0.41(Redmi 12C;Android 12;ru;RU;)",
+        "GarenaMSDK/4.0.42(Poco C55;Android 12;en;IN;)",
+        "GarenaMSDK/4.0.43(Xiaomi 13 Ultra;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.44(Xiaomi Civi 3;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.35(OnePlus Nord 3;Android 13;en;IN;)",
+        "GarenaMSDK/4.0.36(OnePlus Nord CE 3;Android 13;hi;IN;)",
+        "GarenaMSDK/4.0.37(Realme 11 Pro+;Android 13;en;CN;)",
+        "GarenaMSDK/4.0.38(Realme C55;Android 13;id;ID;)",
+        "GarenaMSDK/4.0.39(Vivo V29;Android 13;th;TH;)",
+        "GarenaMSDK/4.0.40(Vivo Y36;Android 13;id;ID;)",
+        "GarenaMSDK/4.0.41(Oppo Reno 9;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.42(Oppo A77s;Android 12;en;MY;)",
+        "GarenaMSDK/4.0.43(Infinix Hot 30;Android 13;ar;EG;)",
+        "GarenaMSDK/4.0.44(Tecno Spark 10;Android 13;en;NG;)",
+        "GarenaMSDK/4.0.35(SM-S911B;Android 13;en;DE;)",
+        "GarenaMSDK/4.0.36(SM-S916B;Android 13;en;FR;)",
+        "GarenaMSDK/4.0.37(SM-F731B;Android 13;en;US;)",
+        "GarenaMSDK/4.0.38(SM-F946B;Android 13;en;KR;)",
+        "GarenaMSDK/4.0.39(SM-A725F;Android 11;en;VN;)",
+        "GarenaMSDK/4.0.40(SM-A528B;Android 11;en;ID;)",
+        "GarenaMSDK/4.0.41(Redmi K60;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.42(Redmi K60 Pro;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.43(Poco F5 Pro;Android 13;en;US;)",
+        "GarenaMSDK/4.0.44(Xiaomi MIX Fold 3;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.35(OnePlus Open;Android 13;en;US;)",
+        "GarenaMSDK/4.0.36(Realme GT 5;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.37(Vivo X90;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.38(Vivo X90 Pro+;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.39(Oppo Find N3;Android 13;en;SG;)",
+        "GarenaMSDK/4.0.40(Oppo Find X6 Pro;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.41(Huawei P60 Pro;Android 12;ar;SA;)",
+        "GarenaMSDK/4.0.42(Honor Magic 5 Pro;Android 13;en;GB;)",
+        "GarenaMSDK/4.0.43(Honor 90;Android 13;fr;FR;)",
+        "GarenaMSDK/4.0.44(Motorola Edge 40;Android 13;es;ES;)",
+        "GarenaMSDK/4.0.35(Nothing Phone 2;Android 13;en;GB;)",
+        "GarenaMSDK/4.0.36(Asus Zenfone 10;Android 13;en;TW;)",
+        "GarenaMSDK/4.0.37(Sony Xperia 1 V;Android 13;ja;JP;)",
+        "GarenaMSDK/4.0.38(Sony Xperia 5 V;Android 13;en;GB;)",
+        "GarenaMSDK/4.0.39(ZTE Axon 40 Ultra;Android 12;zh;CN;)",
+        "GarenaMSDK/4.0.40(Nubia Z50;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.41(Lenovo Legion Y90;Android 12;zh;CN;)",
+        "GarenaMSDK/4.0.42(Black Shark 5;Android 12;zh;CN;)",
+        "GarenaMSDK/4.0.43(TCL 30 Pro;Android 12;en;US;)",
+        "GarenaMSDK/4.0.44(Nokia G60;Android 12;en;GB;)",
+        "GarenaMSDK/4.0.35(SM-A045F;Android 12;ar;EG;)",
+        "GarenaMSDK/4.0.36(SM-A146P;Android 13;en;IN;)",
+        "GarenaMSDK/4.0.37(SM-A236B;Android 12;en;GB;)",
+        "GarenaMSDK/4.0.38(SM-M346B;Android 13;hi;IN;)",
+        "GarenaMSDK/4.0.39(SM-M546B;Android 13;ar;SA;)",
+        "GarenaMSDK/4.0.40(Redmi Note 13;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.41(Redmi Note 13 Pro;Android 13;zh;CN;)",
+        "GarenaMSDK/4.0.42(Poco X6 Pro;Android 14;en;IN;)",
+        "GarenaMSDK/4.0.43(Xiaomi 14 Pro;Android 14;zh;CN;)",
+        "GarenaMSDK/4.0.44(OnePlus 12;Android 14;en;US;)"
     ]
-
     @staticmethod
     def get_ua():
         return random.choice(WAFBypass._uas)
@@ -168,8 +322,8 @@ def generate_exponent():
     num = random.randint(1, 9999)
     return ''.join(exp_digits[d] for d in f"{num:04d}")
 
-WRAPPING_PAIRS = [('꧁','꧂'),('『','』'),('【','】'),('《','》'),('〈','〉'),('〔','〕'),('〖','〗')]
-SINGLE_SYMBOLS = ['☆','★','✧','✦','✩','✪','✫','✬','✭','✮','✯','✰','♡','♥','❤']
+WRAPPING_PAIRS = [('꧁','꧂'),('『','』'),('【','】'),('《','》'),('〈','〉'),('〔','〕'),('〖','〗'),('〘','〙'),('〚','〛'),('❬','❭'),('❮','❯'),('⦅','⦆'),('⟦','⟧'),('⟨','⟩'),('⫷','⫸')]
+SINGLE_SYMBOLS = ['☆','★','✧','✦','✩','✪','✫','✬','✭','✮','✯','✰','♡','♥','❤','❥','❦','❧','ゝ','々','〆','⁂','※','⁑']
 
 def generate_random_name(base):
     exponent = generate_exponent()
@@ -182,7 +336,7 @@ def generate_random_name(base):
     else:
         return f"{base}_{exponent}"
 
-# ---------------- RARITY PATTERNS ---------------- #
+# ---------------- RARITY PATTERNS & CHECKER ---------------- #
 PATTERNS = {
     "R4": [r"(\d)\1{3,}", 5],
     "R3": [r"(\d)\1\1(\d)\2\2", 4],
@@ -244,6 +398,30 @@ def check_rarity(account_id, rarity_threshold=8):
         elif int(account_id) < 100000000:
             score += 3
             patterns_found.append("LOW_ID(<100M)")
+
+    if account_id.isdigit() and len(account_id) > 0:
+        score += 2
+        patterns_found.append("CLEAN_DIGIT")
+
+    if len(account_id) >= 3 and account_id == account_id[::-1]:
+        score += 6
+        patterns_found.append("PALINDROME")
+
+    if "888" in account_id or "999" in account_id:
+        score += 5
+        patterns_found.append("TRIPLE_EIGHT_NINE")
+
+    if "0000" in account_id:
+        score += 7
+        patterns_found.append("QUAD_ZUY")
+
+    if len(account_id) >= 4:
+        rising = all(digits[i] < digits[i+1] for i in range(len(digits)-1))
+        sinking = all(digits[i] > digits[i+1] for i in range(len(digits)-1))
+        if rising or sinking:
+            bonus = min(len(digits) * 2, 10)
+            score += bonus
+            patterns_found.append(f"RISING_SINKING(+{bonus})")
 
     if score >= rarity_threshold:
         if score >= 20: rtype = "LEGENDARY"
@@ -341,18 +519,18 @@ def major_register(access_token, open_id, field, uid, password, region, account_
         payload_bytes = build_proto(payload)
         encrypted = aes_encrypt(payload_bytes.hex())
         request_retry('POST', url, headers=headers, data=encrypted)
-        
+
         login_result = major_login(uid, password, access_token, open_id, region, is_ghost)
         account_id = login_result.get("account_id", "N/A")
         jwt_token = login_result.get("jwt_token", "")
-        
+
         if account_id != "N/A":
             if not is_ghost and jwt_token and region.upper() != "BR":
                 try: force_region_bind(region, jwt_token)
                 except: pass
-            
+
             is_rare, rtype, reason, score = check_rarity(account_id, threshold)
-            
+
             return {
                 "uid": uid,
                 "password": password,
@@ -399,13 +577,11 @@ def get_token(uid, password, region, account_name, password_prefix, is_ghost, th
 def create_single_account(args):
     region, name_prefix, password_prefix, is_ghost, threshold = args
 
-    # Retry the complete pipeline on transient failures so callers see
-    # fewer None results.
     for retry_no in range(5):
         try:
             rand_part = "".join(random.choices("0123456789ABCDEF", k=16))
             password = f"{password_prefix}_{rand_part}"
-            
+
             url = "https://100067.connect.garena.com/api/v2/oauth/guest:register"
             payload = {
                 "app_id": 100067,
@@ -415,7 +591,7 @@ def create_single_account(args):
             }
             body_json = json.dumps(payload, separators=(",", ":"))
             signature = hmac.new(HEX_KEY, body_json.encode("utf-8"), hashlib.sha256).hexdigest()
-            
+
             headers = {
                 "User-Agent": WAFBypass.get_ua(),
                 "Connection": "Keep-Alive",
@@ -427,7 +603,7 @@ def create_single_account(args):
                 "X-Forwarded-For": FastIPSpoofer.get_ip(),
                 "X-Real-IP": FastIPSpoofer.get_ip(),
             }
-            
+
             resp = request_retry('POST', url, headers=headers, data=body_json)
             if resp and resp.status_code == 200:
                 res = resp.json()
@@ -446,11 +622,11 @@ def create_single_account(args):
 def home():
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'})
-    
+
     return jsonify({
         "status": "online",
         "service": "FreeFire Account Generator API",
-        "version": "3.2",
+        "version": VERSION,
         "endpoint": "/gen?name=NAME&count=COUNT&region=REGION&password_prefix=PREFIX&ghost=BOOLEAN&threshold=NUMBER",
         "available_regions": list(REGION_LANG.keys())
     })
@@ -497,7 +673,7 @@ def generate_accounts():
 
     results = []
     rare_accounts = []
-    max_workers = min(count, 100)
+    max_workers = min(count, 20)
     max_attempts = count * 5
     attempts = 0
 
@@ -531,7 +707,7 @@ def generate_accounts():
         "rare_accounts": rare_accounts
     })
 
-# Untuk Vercel / WSGI Server
+# WSGI Server Entry Point
 def application(environ, start_response):
     return app(environ, start_response)
 
