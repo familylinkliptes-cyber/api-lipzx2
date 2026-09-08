@@ -49,7 +49,7 @@ def after_request(response):
 REGION_LANG = {"ME":"ar","IND":"hi","ID":"id","VN":"vi","TH":"th","BD":"bn","PK":"ur","TW":"zh","CIS":"ru","SAC":"es","BR":"pt"}
 HEX_KEY = bytes.fromhex("32656534343831396539623435393838343531343130363762323831363231383734643064356437616639643866376530306331653534373135623764316533")
 
-OPT = {'timeout': 10, 'retries': 3, 'backoff': 0.8}
+OPT = {'timeout': 10, 'retries': 2, 'backoff': 0.5}
 
 # ---------------- IP SPOOFING ---------------- #
 class FastIPSpoofer:
@@ -58,7 +58,7 @@ class FastIPSpoofer:
     _IP_LOCK = threading.Lock()
 
     @classmethod
-    def init_ip_pool(cls, count=10000):
+    def init_ip_pool(cls, count=5000):
         if not cls._IP_POOL:
             for _ in range(count):
                 a = random.randint(1,254)
@@ -74,7 +74,7 @@ class FastIPSpoofer:
             cls._IP_INDEX += 1
             return ip
 
-FastIPSpoofer.init_ip_pool(10000)
+FastIPSpoofer.init_ip_pool(5000)
 
 # ---------------- WAF BYPASS ---------------- #
 class WAFBypass:
@@ -399,6 +399,8 @@ def get_token(uid, password, region, account_name, password_prefix, is_ghost, th
 def create_single_account(args):
     region, name_prefix, password_prefix, is_ghost, threshold = args
 
+    # Retry the complete pipeline on transient failures so callers see
+    # fewer None results.
     for retry_no in range(5):
         try:
             rand_part = "".join(random.choices("0123456789ABCDEF", k=16))
@@ -448,8 +450,9 @@ def home():
     return jsonify({
         "status": "online",
         "service": "FreeFire Account Generator API",
-        "version": "3.3 - Continuous Mode",
-        "endpoint": "/gen?name=NAME&count=COUNT&region=REGION&password_prefix=PREFIX&ghost=BOOLEAN&threshold=NUMBER"
+        "version": "3.2",
+        "endpoint": "/gen?name=NAME&count=COUNT&region=REGION&password_prefix=PREFIX&ghost=BOOLEAN&threshold=NUMBER",
+        "available_regions": list(REGION_LANG.keys())
     })
 
 @app.route('/health', methods=['GET'])
@@ -494,8 +497,9 @@ def generate_accounts():
 
     results = []
     rare_accounts = []
-    max_workers = min(count, 15) # Dibatasi 15 worker per instance agar Vercel tidak melimit IP
-    max_attempts = count * 50    # Menaikkan kuota attempt hingga 50x lipat
+    max_workers = min(count, 20)
+    max_attempts = count * 5
+    attempts = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         while len(results) < count and attempts < max_attempts:
@@ -527,6 +531,7 @@ def generate_accounts():
         "rare_accounts": rare_accounts
     })
 
+# Untuk Vercel / WSGI Server
 def application(environ, start_response):
     return app(environ, start_response)
 
